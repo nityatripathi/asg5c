@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Three.js - Fundamentals with animation</title>
+    <style>
+
+    </style>
+  </head>
+  <body>
+<canvas id="c"></canvas>
+  <script  type="importmap">{
+	"imports": {
+		"three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.min.js",
+		"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+	}
+}</script>
+  </body>
+
+  <script type="module">
+// Three.js - Fundamentals with animation
+// from https://threejs.org/manual/examples/fundamentals-with-animation.html
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+//NEW
+import {OBJLoader} from 'https://threejs.org/examples/jsm/loaders/OBJLoader.js';
+import {MTLLoader} from 'three/addons/loaders/MTLLoader.js';
+
+function main() {
+
+	const canvas = document.querySelector( '#c' );
+	const renderer = new THREE.WebGLRenderer( { antialias: true, canvas } );
+
+	const fov = 110;
+	const aspect = 2; // the canvas default
+	const near = 0.1;
+	//const far = 5;
+	const far = 50;
+	const camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
+	camera.position.set( 0, -4, 0 );
+
+	class MinMaxGUIHelper {
+	  constructor(obj, minProp, maxProp, minDif) {
+	    this.obj = obj;
+	    this.minProp = minProp;
+	    this.maxProp = maxProp;
+	    this.minDif = minDif;
+	  }
+	  get min() {
+	    return this.obj[this.minProp];
+	  }
+	  set min(v) {
+	    this.obj[this.minProp] = v;
+	    this.obj[this.maxProp] = Math.max(this.obj[this.maxProp], v + this.minDif);
+	  }
+	  get max() {
+	    return this.obj[this.maxProp];
+	  }
+	  set max(v) {
+	    this.obj[this.maxProp] = v;
+	    this.min = this.min;  // this will call the min setter
+	  }
+	}
+
+	function updateCamera() {
+	  camera.updateProjectionMatrix();
+	}
+	 
+	const gui = new GUI();
+	gui.add(camera, 'fov', 1, 180).onChange(updateCamera);
+	const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
+	gui.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near').onChange(updateCamera);
+	gui.add(minMaxGUIHelper, 'max', 0.1, 50, 0.1).name('far').onChange(updateCamera);
+
+	const controls = new OrbitControls( camera, canvas );
+	controls.target.set( 0, -4, 0 );
+	controls.update();
+
+	const scene = new THREE.Scene();
+
+	{
+
+		const color = 0xFFFFFF;
+		const intensity = 3;
+		const light = new THREE.DirectionalLight( color, intensity );
+		light.position.set( - 1, 2, 4 );
+		scene.add( light );
+
+		const color2 = 0xFFFFFF;
+		const intensity2 = 1;
+		const light2 = new THREE.AmbientLight(color2, intensity2);
+		scene.add(light2);
+
+		const skyColor = 0xB1E1FF;  // light blue
+		const groundColor = 0xB97A20;  // brownish orange
+		const intensity3 = 0.5;
+		const light3 = new THREE.HemisphereLight(skyColor, groundColor, intensity3);
+		scene.add(light3);
+
+	}
+	
+	// Create a buffer to hold particle positions
+	const particleGeometry = new THREE.BufferGeometry();
+	const positions = [];
+
+	// Add random particle positions
+	const numParticles = 1000;
+	for (let i = 0; i < numParticles; i++) {
+	    const x = Math.random() * 9 - 30;
+	    const y = Math.random() * 100 - 50; 
+	    const z = Math.random() * 100 - 10; 
+
+	    // Push the position into the positions array
+	    positions.push(x, y, z);
+	}
+
+	particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+	const particleMaterial = new THREE.PointsMaterial({
+	    size: 0.5, 
+	    color: 0xffffff, 
+	    transparent: true,
+	    opacity: 0.5,
+	    blending: THREE.NormalBlending,
+	});
+
+	const particles = new THREE.Points(particleGeometry, particleMaterial);
+
+	scene.add(particles);
+
+	
+	// Load the bed
+    let bed;
+    const bedGroup = new THREE.Group();
+    scene.add(bedGroup);
+
+
+	//bed
+	{
+		const mtlLoader = new MTLLoader();
+		mtlLoader.load( 'Bed.mtl', ( mtl ) => {
+
+			mtl.preload();
+
+			const objLoader = new OBJLoader();
+			objLoader.setMaterials( mtl );
+			objLoader.load('Bed.obj', (root) => {
+			
+			scene.add(root);
+
+			root.position.x = 0.5;
+			root.position.y = -6;
+			root.position.z = -1;
+			});
+		});
+	}
+
+	//plant
+	{
+		const mtlLoader2 = new MTLLoader();
+		mtlLoader2.load( '10461_Yucca_Plant_v1_max2010_it2.mtl', ( mtl2 ) => {
+
+			mtl2.preload();
+
+			const objLoader2 = new OBJLoader();
+			objLoader2.setMaterials( mtl2 );
+			objLoader2.load('10461_Yucca_Plant_v1_max2010_it2.obj', (root2) => {
+			scene.add(root2);
+			
+			root2.scale.set(0.15, 0.15, 0.15);
+			root2.rotation.x = -Math.PI / 2;
+			//root2.rotation.x = Math.PI / 2;
+
+			root2.position.x = -30;
+			root2.position.y = -25;
+			root2.position.z = 20;
+			});
+		});
+	}
+	
+	//mac miller
+	const boxWidth = 1;
+	const boxHeight = 1;
+	const boxDepth = 1;
+	const geometry = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader = new THREE.TextureLoader();
+	const texture = loader.load( 'https://i.iheart.com/v3/re/new_assets/57f5174d654b9edfd3e746eb?ops=contain(1480,0)' );
+	texture.colorSpace = THREE.SRGBColorSpace;
+
+	const material = new THREE.MeshPhongMaterial( { map: texture } ); // greenish blue
+
+	const cube = new THREE.Mesh( geometry, material );
+	scene.add( cube );
+
+	cube.position.x = 1.5;
+	cube.position.y = -2;
+	cube.position.z = -7;
+
+	//kendrick lamar
+	const geometry2 = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader2 = new THREE.TextureLoader();
+	const texture2 = loader2.load( 'https://www.rap-up.com/wp-content/uploads/2012/09/kendrick-lamar-gkmc-deluxe.jpg' );
+	texture2.colorSpace = THREE.SRGBColorSpace;
+
+	const material2 = new THREE.MeshPhongMaterial( { map: texture2 } ); // greenish blue
+
+	const cube2 = new THREE.Mesh( geometry2, material2 );
+	scene.add( cube2 );
+
+	cube2.position.x = 1.5;
+	cube2.position.y = -4;
+	cube2.position.z = -7;
+
+	//kali uchis
+	const geometry3 = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader3 = new THREE.TextureLoader();
+	const texture3 = loader3.load( 'https://snworksceo.imgix.net/bdh/211cb44c-2057-4fc6-ad38-0267d837487a.sized-1000x1000.jpeg?w=1000' );
+	texture3.colorSpace = THREE.SRGBColorSpace;
+
+	const material3 = new THREE.MeshPhongMaterial( { map: texture3 } ); // greenish blue
+
+	const cube3 = new THREE.Mesh( geometry3, material3 );
+	scene.add( cube3 );
+
+	cube3.position.x = -10.5;
+	cube3.position.y = -4;
+	cube3.position.z = -7;
+
+	//sonder
+	const geometry4 = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader4 = new THREE.TextureLoader();
+	const texture4 = loader4.load( 'https://cdns-images.dzcdn.net/images/cover/1371012824f568a2a0841afae2822ca8/1900x1900-000000-80-0-0.jpg' );
+	texture4.colorSpace = THREE.SRGBColorSpace;
+
+	const material4 = new THREE.MeshPhongMaterial( { map: texture4 } ); // greenish blue
+
+	const cube4 = new THREE.Mesh( geometry4, material4 );
+	scene.add( cube4 );
+
+	cube4.position.x = -10.5;
+	cube4.position.y = -2;
+	cube4.position.z = -7;
+
+	//lana del rey
+	const geometry5 = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader5 = new THREE.TextureLoader();
+	const texture5 = loader5.load( 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR42azaxEK0s41fEYcl5rNeV2Ceay2-tkOw1EigLVlaYA&s' );
+	texture5.colorSpace = THREE.SRGBColorSpace;
+
+	const material5 = new THREE.MeshPhongMaterial( { map: texture5 } ); // greenish blue
+
+	const cube5 = new THREE.Mesh( geometry5, material5 );
+	scene.add( cube5 );
+
+	cube5.position.x = -16;
+	cube5.position.y = -4;
+	cube5.position.z = -6.5;
+
+	//tame impala
+	const geometry6 = new THREE.BoxGeometry( boxWidth, boxHeight, boxDepth );
+
+	const loader6 = new THREE.TextureLoader();
+	const texture6 = loader6.load( 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ26nvCi7UJdZNeYlDCoGVOLFe0iYwQB_52BFUHgLmlFA&s' );
+	texture6.colorSpace = THREE.SRGBColorSpace;
+
+	const material6 = new THREE.MeshPhongMaterial( { map: texture6 } ); // greenish blue
+
+	const cube6 = new THREE.Mesh( geometry6, material6 );
+	scene.add( cube6 );
+
+	cube6.position.x = -16;
+	cube6.position.y = -2;
+	cube6.position.z = -6.5;
+
+
+
+
+	const sgeometry = new THREE.SphereGeometry( 0.8, 32, 16 );
+    const smaterial = new THREE.MeshPhongMaterial( { color: 0xFFD1DC } );
+    const sphere = new THREE.Mesh( sgeometry, smaterial );
+    scene.add( sphere );
+
+    sphere.position.x = -19;
+    sphere.position.y = -9;
+    sphere.position.z = -10;
+
+    const cgeometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const cmaterial = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder = new THREE.Mesh( cgeometry, cmaterial ); 
+	scene.add( cylinder );
+
+    cylinder.position.x = 18;
+    cylinder.position.y = -10;
+    cylinder.position.z = 4;
+
+    const c2geometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const c2material = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder2 = new THREE.Mesh( c2geometry, c2material ); 
+	scene.add( cylinder2 );
+
+    cylinder2.position.x = 16;
+    cylinder2.position.y = -10;
+    cylinder2.position.z = 4;
+
+    const c3geometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const c3material = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder3 = new THREE.Mesh( c3geometry, c3material ); 
+	scene.add( cylinder3 );
+
+    cylinder3.position.x = 14;
+    cylinder3.position.y = -10;
+    cylinder3.position.z = 4;
+
+    const c4geometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const c4material = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder4 = new THREE.Mesh( c4geometry, c4material ); 
+	scene.add( cylinder4 );
+
+    cylinder4.position.x = 12;
+    cylinder4.position.y = -10;
+    cylinder4.position.z = 4;
+
+    const c5geometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const c5material = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder5 = new THREE.Mesh( c5geometry, c5material ); 
+	scene.add( cylinder5 );
+
+    cylinder5.position.x = 10;
+    cylinder5.position.y = -10;
+    cylinder5.position.z = 4;
+
+    const c6geometry = new THREE.CylinderGeometry( 0.6, 0.6, 1.4, 32 ); 
+	const c6material = new THREE.MeshPhongMaterial( {color: 0xF5F5DC} ); 
+	const cylinder6 = new THREE.Mesh( c6geometry, c6material ); 
+	scene.add( cylinder6 );
+
+    cylinder6.position.x = 8;
+    cylinder6.position.y = -10;
+    cylinder6.position.z = 4;
+
+    //right rod
+    const r1geometry = new THREE.CylinderGeometry( 0.2, 0.2, 15, 32 ); 
+	const r1material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod1 = new THREE.Mesh( r1geometry, r1material ); 
+	scene.add( rod1 );
+
+    rod1.position.x = -1.5;
+    rod1.position.y = -5.4;
+    rod1.position.z = -12;
+
+    //left rod
+    const r2geometry = new THREE.CylinderGeometry( 0.15, 0.15, 15, 32 ); 
+	const r2material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod2 = new THREE.Mesh( r2geometry, r2material ); 
+	scene.add( rod2 );
+
+    rod2.position.x = -12.5;
+    rod2.position.y = -5.2;
+    rod2.position.z = -12;
+
+    //middle rod
+    const r3geometry = new THREE.CylinderGeometry( 0.19, 0.19, 15, 32 ); 
+	const r3material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod3 = new THREE.Mesh( r3geometry, r3material ); 
+	scene.add( rod3 );
+
+    rod3.position.x = -7;
+    rod3.position.y = -5.3;
+    rod3.position.z = -12;
+
+    //left left rod
+    const r4geometry = new THREE.CylinderGeometry( 0.17, 0.17, 15, 32 ); 
+	const r4material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod4 = new THREE.Mesh( r4geometry, r4material ); 
+	scene.add( rod4 );
+
+    rod4.position.x = -11;
+    rod4.position.y = -5.2;
+    rod4.position.z = -12;
+
+    //left right rod
+    const r5geometry = new THREE.CylinderGeometry( 0.18, 0.18, 15, 32 ); 
+	const r5material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod5 = new THREE.Mesh( r5geometry, r5material ); 
+	scene.add( rod5 );
+
+    rod5.position.x = -9;
+    rod5.position.y = -5.3;
+    rod5.position.z = -12;
+
+    //right left rod
+    const r6geometry = new THREE.CylinderGeometry( 0.2, 0.2, 15, 32 ); 
+	const r6material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod6 = new THREE.Mesh( r6geometry, r6material ); 
+	scene.add( rod6 );
+
+    rod6.position.x = -5;
+    rod6.position.y = -5.35;
+    rod6.position.z = -12;
+
+    //right right rod
+    const r7geometry = new THREE.CylinderGeometry( 0.2, 0.2, 15, 32 ); 
+	const r7material = new THREE.MeshPhongMaterial( {color: 0x000000} ); 
+	const rod7 = new THREE.Mesh( r7geometry, r7material ); 
+	scene.add( rod7 );
+
+    rod7.position.x = -3.2;
+    rod7.position.y = -5.4;
+    rod7.position.z = -12;
+
+    {
+	  const loader = new THREE.CubeTextureLoader();
+	  const texture = loader.load([
+	    'px.jpg',
+	    'nx.jpg',
+	    'py.jpg',
+	    'ny.jpg',
+	    'pz.jpg',
+	    'nz.jpg',
+	  ]);
+	  scene.background = texture;
+	}
+
+	renderer.setSize(window.innerWidth/1.5, window.innerHeight/1.5);
+
+	function render( time ) {
+
+		time *= 0.001; // convert time to seconds
+
+		//cube.rotation.x = time;
+		cube.rotation.y = time;
+
+		//cube2.rotation.x = time;
+		cube2.rotation.y = time;
+
+		cube3.rotation.y = time;
+
+		cube4.rotation.y = time;
+
+		cube5.rotation.y = time;
+
+		cube6.rotation.y = time;
+
+		sphere.rotation.x = time;
+		sphere.rotation.y = time;
+
+		cylinder2.rotation.x = time;
+		cylinder2.rotation.y = time;
+
+		cylinder4.rotation.x = time;
+		cylinder4.rotation.y = time;
+
+		cylinder6.rotation.x = time;
+		cylinder6.rotation.y = time;
+
+        const positions = particles.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i] += Math.sin(time)*0.1;
+            positions[i + 1] += Math.cos(time)*0.1;
+            positions[i + 2] += Math.sin(time)*0.1;
+
+            // Fade out particles over time
+            particles.material.opacity -= 0.000001;
+        }
+
+        particles.geometry.attributes.position.needsUpdate = true;
+
+        // Reset opacity and position of particles when they fade out completely
+        if (particles.material.opacity <= 0) {
+            particles.material.opacity = 0.5;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] = Math.random() * 9 - 30;
+                positions[i + 1] = Math.random() * 100 - 50;
+                positions[i + 2] = Math.random() * 100 - 50;
+            }
+        }
+
+		renderer.render( scene, camera );
+
+		requestAnimationFrame( render );
+
+	}
+
+	requestAnimationFrame( render );
+
+}
+
+main();
+
+  </script>
+
+</html>
